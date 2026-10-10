@@ -1,0 +1,336 @@
+
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme',theme);
+  try{localStorage.setItem('parkwise_theme',theme)}catch(e){}
+  const accent=document.documentElement.getAttribute('data-accent')||'green';
+  if(typeof applyAccent==='function')applyAccent(accent);
+}
+function hexToRgb(hex){
+  let value=String(hex||'').replace('#','').trim();
+  if(/^[0-9a-f]{3}$/i.test(value))value=value.split('').map(c=>c+c).join('');
+  if(!/^[0-9a-f]{6}$/i.test(value))return {r:224,g:91,b:67};
+  return {r:parseInt(value.slice(0,2),16),g:parseInt(value.slice(2,4),16),b:parseInt(value.slice(4,6),16)};
+}
+function rgbHex({r,g,b}){return '#'+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('');}
+function mixHex(first,second,weight){
+  const a=hexToRgb(first),b=hexToRgb(second);
+  return rgbHex({r:a.r+(b.r-a.r)*weight,g:a.g+(b.g-a.g)*weight,b:a.b+(b.b-a.b)*weight});
+}
+const PARKWISE_ACCENTS={green:'#28734d',blue:'#2d65bd',purple:'#6841a3',amber:'#966018',rose:'#b72c5d',teal:'#0e8278',cyan:'#087eae',coral:'#b94a37',silver:'#7f8c9f',gold:'#c99a16',rgb:'#31d6c9'};
+let parkwiseRgbAnimationFrame = null;
+function syncRgbSpectrum(accent){
+  const root=document.documentElement;
+  if(parkwiseRgbAnimationFrame!==null){cancelAnimationFrame(parkwiseRgbAnimationFrame);parkwiseRgbAnimationFrame=null;}
+  if(accent!=='rgb'){
+    root.style.removeProperty('--parkwise-rgb-hue');
+    return;
+  }
+  // Anchor hue to wall-clock time, not the page-load animation start. This keeps
+  // RGB moving seamlessly across refreshes and page navigation.
+  const update=()=>{
+    if(root.getAttribute('data-accent')!=='rgb'){
+      parkwiseRgbAnimationFrame=null;
+      root.style.removeProperty('--parkwise-rgb-hue');
+      return;
+    }
+    const hue=((Date.now()%30000)/30000)*360;
+    root.style.setProperty('--parkwise-rgb-hue',hue.toFixed(2)+'deg');
+    parkwiseRgbAnimationFrame=requestAnimationFrame(update);
+  };
+  root.style.setProperty('--parkwise-rgb-hue',(((Date.now()%30000)/30000)*360).toFixed(2)+'deg');
+  parkwiseRgbAnimationFrame=requestAnimationFrame(update);
+}
+function refreshThemeTokens(accentHex){
+  const root=document.documentElement, dark=(root.getAttribute('data-theme')||'dark')==='dark';
+  const surfaceStyle=root.getAttribute('data-surface-style')||'tinted';
+  const base=accentHex||PARKWISE_ACCENTS.green;
+  const mainBase=dark?'#111319':'#f5f6f8';
+  const raisedBase=dark?'#1c2028':'#ffffff';
+  const mutedBase=dark?'#252a34':'#eff1f5';
+  const strongBase=dark?'#2d333e':'#e5e8ee';
+  const lineBase=dark?'#343945':'#dfe3e9';
+  const accentText=dark?mixHex(base,'#ffffff',0.52):mixHex(base,'#000000',0.28);
+  const buttonColor=dark?mixHex(base,'#000000',0.10):mixHex(base,'#000000',0.22);
+  const set=(key,value)=>root.style.setProperty(key,value);
+  const isRGB=root.getAttribute('data-accent')==='rgb';
+  if(isRGB){
+    // The hue is animated by CSS, so the RGB theme remains dynamic without timers.
+    set('--green','hsl(var(--parkwise-rgb-hue) 82% 68%)');
+    set('--green-dark','hsl(var(--parkwise-rgb-hue) 78% 39%)');
+    set('--lime','hsl(var(--parkwise-rgb-hue) 88% 84%)');
+    set('--accent','hsl(var(--parkwise-rgb-hue) 82% 68%)');
+    set('--accent-soft',dark?'hsl(var(--parkwise-rgb-hue) 48% 23%)':'hsl(var(--parkwise-rgb-hue) 65% 92%)');
+    set('--accent-hover',dark?'hsl(var(--parkwise-rgb-hue) 56% 29%)':'hsl(var(--parkwise-rgb-hue) 62% 88%)');
+    set('--accent-ink',dark?'hsl(var(--parkwise-rgb-hue) 86% 82%)':'hsl(var(--parkwise-rgb-hue) 70% 30%)');
+    set('--accent-line','hsl(var(--parkwise-rgb-hue) 78% 58%)');
+    if(surfaceStyle==='neutral'){
+      set('--surface-main',dark?'#111319':'#f5f6f8');set('--surface-raised',dark?'#1c2028':'#ffffff');
+      set('--surface-muted',dark?'#252a34':'#eff1f5');set('--surface-strong',dark?'#2d333e':'#e5e8ee');set('--line',dark?'#343945':'#dfe3e9');
+    }else if(dark){
+      set('--surface-main','hsl(var(--parkwise-rgb-hue) 18% 8%)');set('--surface-raised','hsl(var(--parkwise-rgb-hue) 18% 14%)');
+      set('--surface-muted','hsl(var(--parkwise-rgb-hue) 20% 20%)');set('--surface-strong','hsl(var(--parkwise-rgb-hue) 22% 26%)');set('--line','hsl(var(--parkwise-rgb-hue) 22% 32%)');
+    }else{
+      set('--surface-main','hsl(var(--parkwise-rgb-hue) 32% 97%)');set('--surface-raised','hsl(var(--parkwise-rgb-hue) 22% 99%)');
+      set('--surface-muted','hsl(var(--parkwise-rgb-hue) 30% 92%)');set('--surface-strong','hsl(var(--parkwise-rgb-hue) 32% 87%)');set('--line','hsl(var(--parkwise-rgb-hue) 28% 82%)');
+    }
+    return;
+  }
+  set('--green',accentText);set('--green-dark',buttonColor);set('--lime',mixHex(base,'#ffffff',0.77));set('--accent',accentText);
+  set('--accent-soft',mixHex(dark?'#111319':'#ffffff',base,dark?0.24:0.12));
+  set('--accent-hover',mixHex(dark?'#111319':'#ffffff',base,dark?0.28:0.15));
+  set('--accent-ink',dark?mixHex(base,'#ffffff',0.60):mixHex(base,'#000000',0.30));
+  set('--accent-line',mixHex(lineBase,base,dark?0.42:0.35));
+  if(surfaceStyle==='neutral'){
+    set('--surface-main',dark?'#111319':'#f5f6f8');set('--surface-raised',dark?'#1c2028':'#ffffff');
+    set('--surface-muted',dark?'#252a34':'#eff1f5');set('--surface-strong',dark?'#2d333e':'#e5e8ee');set('--line',lineBase);
+  }else{
+    set('--surface-main',mixHex(mainBase,base,dark?0.07:0.035));
+    set('--surface-raised',mixHex(raisedBase,base,dark?0.13:0.018));
+    set('--surface-muted',mixHex(mutedBase,base,dark?0.22:0.10));
+    set('--surface-strong',mixHex(strongBase,base,dark?0.26:0.15));
+    set('--line',mixHex(lineBase,base,dark?0.30:0.19));
+  }
+}
+function applyAccent(accent){
+  const known=[...Object.keys(PARKWISE_ACCENTS),'custom'];
+  const value=known.includes(accent)?accent:'green';
+  let custom='#e05b43';
+  try{custom=localStorage.getItem('parkwise_custom_accent')||custom}catch(e){}
+  if(!/^#[0-9a-f]{6}$/i.test(custom))custom='#e05b43';
+  const hex=value==='custom'?custom:PARKWISE_ACCENTS[value];
+  document.documentElement.setAttribute('data-accent',value);
+  document.documentElement.style.setProperty('--custom-accent',hex);
+  try{localStorage.setItem('parkwise_accent',value);localStorage.setItem('parkwise_custom_accent',custom)}catch(e){}
+  syncRgbSpectrum(value);
+  refreshThemeTokens(hex);
+  document.querySelectorAll('[data-accent-choice]').forEach(button=>{
+    const selected=button.getAttribute('data-accent-choice')===value;
+    button.setAttribute('aria-checked',selected?'true':'false');
+    button.classList.toggle('selected',selected);
+  });
+  const picker=document.getElementById('customAccentColor');
+  const hexLabel=document.getElementById('customAccentHex');
+  const swatch=document.getElementById('customThemeSwatch');
+  if(picker&&picker.value.toLowerCase()!==custom.toLowerCase())picker.value=custom;
+  if(hexLabel)hexLabel.textContent=custom.toUpperCase();
+  if(swatch)swatch.style.setProperty('--swatch',custom);
+}
+function applySurfaceStyle(style){
+  const value=style==='neutral'?'neutral':'tinted';
+  document.documentElement.setAttribute('data-surface-style',value);
+  try{localStorage.setItem('parkwise_surface_style',value)}catch(e){}
+  document.querySelectorAll('[data-surface-choice]').forEach(button=>{
+    const selected=button.getAttribute('data-surface-choice')===value;
+    button.setAttribute('aria-checked',selected?'true':'false');
+    button.classList.toggle('selected',selected);
+  });
+  const accent=document.documentElement.getAttribute('data-accent')||'green';
+  let hex=PARKWISE_ACCENTS[accent]||PARKWISE_ACCENTS.green;
+  if(accent==='custom'){try{hex=localStorage.getItem('parkwise_custom_accent')||'#e05b43'}catch(e){hex='#e05b43'}}
+  refreshThemeTokens(hex);
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  const themeToggle=document.getElementById('settingTheme');
+  const current=(document.documentElement.getAttribute('data-theme')||'dark');
+  if(themeToggle){themeToggle.checked=current==='dark';themeToggle.addEventListener('change',()=>{applyTheme(themeToggle.checked?'dark':'light');toast(themeToggle.checked?'Dark theme enabled':'Light theme enabled')})}
+  document.querySelectorAll('[data-accent-choice]').forEach(button=>button.addEventListener('click',()=>{
+    const next=button.dataset.accentChoice;
+    applyAccent(next);
+    toast(button.querySelector('strong')?.textContent+' selected');
+  }));
+  const customPicker=document.getElementById('customAccentColor');
+  let storedCustom='#e05b43';try{storedCustom=localStorage.getItem('parkwise_custom_accent')||storedCustom}catch(e){}
+  if(customPicker){customPicker.value=storedCustom;customPicker.addEventListener('input',()=>{try{localStorage.setItem('parkwise_custom_accent',customPicker.value)}catch(e){}applyAccent('custom')});}
+  let savedAccent='green';try{savedAccent=localStorage.getItem('parkwise_accent')||document.documentElement.getAttribute('data-accent')||'green'}catch(e){savedAccent=document.documentElement.getAttribute('data-accent')||'green'}
+  applyAccent(savedAccent);
+  document.querySelectorAll('[data-surface-choice]').forEach(button=>button.addEventListener('click',()=>{applySurfaceStyle(button.dataset.surfaceChoice);toast(button.dataset.surfaceChoice==='tinted'?'Theme-tinted surfaces enabled':'Neutral surfaces enabled')}));
+  applySurfaceStyle(document.documentElement.getAttribute('data-surface-style')||'tinted');
+});
+
+const STORE={reports:'parkwise_reports_v1',resolved:'parkwise_resolved_v1',reservations:'parkwise_reservations_v1',settings:'parkwise_settings_v1'};
+const initialParking=[
+{id:'anna',name:'Anna Nagar Tower Park',area:'Anna Nagar',lat:13.0850,lon:80.2101,distance:'0.8 km',kind:'Open parking',spots:42,total:60,icon:'🅿️',status:'Available',price:'₹20 / hour'},
+{id:'egmore',name:'Egmore Metro Parking',area:'Egmore',lat:13.0780,lon:80.2610,distance:'1.2 km',kind:'Covered parking',spots:8,total:48,icon:'🚘',status:'Filling fast',price:'₹30 / hour'},
+{id:'mylapore',name:'Mylapore Tank Road',area:'Mylapore',lat:13.0336,lon:80.2674,distance:'2.1 km',kind:'Street parking',spots:31,total:44,icon:'🅿️',status:'Available',price:'₹15 / hour'},
+{id:'tnagar',name:'T. Nagar · Pondy Bazaar',area:'T. Nagar',lat:13.0418,lon:80.2341,distance:'2.7 km',kind:'Multi-level',spots:4,total:90,icon:'🚗',status:'Almost full',price:'₹40 / hour'},
+{id:'kilpauk',name:'Kilpauk Garden Parking',area:'Kilpauk',lat:13.0827,lon:80.2370,distance:'3.2 km',kind:'Open parking',spots:26,total:45,icon:'🅿️',status:'Available',price:'₹20 / hour'},
+{id:'marina',name:'Marina Beach North Lot',area:'Marina',lat:13.0644,lon:80.2836,distance:'4.1 km',kind:'Open parking',spots:57,total:100,icon:'🚙',status:'Available',price:'₹25 / hour'}
+];
+const initialViolations=[
+{id:'v1',plate:'TN 09 AB 4821',location:'Mount Road',issue:'Illegal parking',time:'10:42 AM',status:'Review',icon:'🚙'},
+{id:'v2',plate:'TN 10 CD 1906',location:'T. Nagar',issue:'Road obstruction',time:'10:18 AM',status:'Pending',icon:'🚗'},
+{id:'v3',plate:'TN 07 EF 7732',location:'Egmore',issue:'No-parking zone',time:'09:56 AM',status:'Review',icon:'🚐'},
+{id:'v4',plate:'TN 22 GH 4430',location:'Anna Salai',issue:'Blocked accessible bay',time:'09:21 AM',status:'Pending',icon:'🚗'},
+{id:'v5',plate:'TN 11 JK 2881',location:'Mylapore',issue:'Double parking',time:'Yesterday',status:'Resolved',icon:'🚘'}
+];
+function read(key,fallback){try{const val=localStorage.getItem(key);return val?JSON.parse(val):fallback}catch(e){return fallback}}
+function write(key,val){try{localStorage.setItem(key,JSON.stringify(val))}catch(e){}}
+function escapeHTML(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+let toastTimer;
+function toast(msg){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),3000)}
+function getParking(){const reservations=read(STORE.reservations,{});return initialParking.map(p=>({...p,spots:Math.max(0,p.spots-(reservations[p.id]||0))})).map(p=>({...p,status:p.spots===0?'Full':p.spots<=5?'Almost full':p.spots<=10?'Filling fast':'Available'}))}
+function getViolations(){const resolved=read(STORE.resolved,[]);return initialViolations.map(v=>resolved.includes(v.id)?{...v,status:'Resolved'}:v)}
+function markResolved(id){const arr=read(STORE.resolved,[]);if(!arr.includes(id))arr.push(id);write(STORE.resolved,arr);renderViolations();updateStats();toast('Alert marked as resolved.')}
+function updateStats(){const unresolved=getViolations().filter(v=>v.status!=='Resolved').length;const r=read(STORE.reports,[]);const p=getParking().reduce((n,x)=>n+x.spots,0);document.querySelectorAll('[data-stat="spots"]').forEach(n=>n.textContent=p);document.querySelectorAll('[data-stat="violations"]').forEach(n=>n.textContent=String(unresolved).padStart(2,'0'));document.querySelectorAll('[data-stat="reports"]').forEach(n=>n.textContent=36+r.length)}
+function statusClass(s){return s==='Resolved'?'pill':s==='Review'?'pill danger':s==='Pending'?'pill warn':s==='Almost full'?'pill danger':s==='Filling fast'?'pill warn':'pill'}
+function renderViolations(filter='All'){const tbody=document.getElementById('violationRows');if(!tbody)return;const data=getViolations().filter(v=>filter==='All'||v.status===filter);tbody.innerHTML=data.map(v=>`<tr><td><div class="vehicle"><span class="vehicle-icon">${v.icon}</span><span>${escapeHTML(v.plate)}<small style="display:block;color:#89938c;font-weight:400;margin-top:3px">${escapeHTML(v.location)}</small></span></div></td><td>${escapeHTML(v.issue)}</td><td>${escapeHTML(v.time)}</td><td><span class="${statusClass(v.status)}">${escapeHTML(v.status)}</span></td><td>${v.status==='Resolved'?'<span style="color:#89938c">Done</span>':`<button class="text-btn" data-resolve="${v.id}">Resolve</button>`}</td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center;color:#89938c;padding:24px">No alerts match this filter.</td></tr>';tbody.querySelectorAll('[data-resolve]').forEach(b=>b.addEventListener('click',()=>markResolved(b.dataset.resolve)));}
+function haversineKm(lat1,lon1,lat2,lon2){const rad=x=>x*Math.PI/180;const dLat=rad(lat2-lat1),dLon=rad(lon2-lon1);const a=Math.sin(dLat/2)**2+Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLon/2)**2;return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function renderParking(){
+ const list=document.getElementById('parkingCards');if(!list)return;
+ const q=(document.getElementById('parkingSearch')?.value||'').toLowerCase().trim();
+ const active=document.querySelector('[data-park-filter].active')?.dataset.parkFilter||'All';
+ const type=document.getElementById('parkingTypeFilter')?.value||'all';
+ const sort=document.getElementById('parkingSort')?.value||'near';
+ const radius=document.getElementById('parkingRadius')?.value||'all';
+ const all=getParking();
+ const origin=window._parkwiseOrigin||null;
+ let rows=all.filter(p=>(active==='All'||(active==='Available'&&p.spots>10)||(active==='Filling fast'&&p.spots>0&&p.spots<=10)||(active==='Full'&&p.spots===0))&&(type==='all'||p.kind===type)&&(`${p.name} ${p.area} ${p.kind}`.toLowerCase().includes(q)));
+ rows=rows.map(p=>({...p,_distance:(origin&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon)))?haversineKm(origin.lat,origin.lon,Number(p.lat),Number(p.lon)):null}));
+ if(radius!=='all'){if(origin){rows=rows.filter(p=>p._distance!==null&&p._distance<=Number(radius));}else if(document.getElementById('parkingLocationHint')){document.getElementById('parkingLocationHint').textContent='Select “Use Current Location” first to filter by distance. Showing all matching demo locations for now.';}}
+ if(sort==='near'&&origin)rows.sort((a,b)=>(a._distance??Infinity)-(b._distance??Infinity));
+ else if(sort==='available')rows.sort((a,b)=>b.spots-a.spots);
+ else if(sort==='name')rows.sort((a,b)=>a.name.localeCompare(b.name));
+ const hint=document.getElementById('parkingLocationHint');
+ if(hint&&!(radius!=='all'&&!origin))hint.textContent=origin?`Sorted from your last selected location. Distances are straight-line estimates; demo spots, prices and availability are not live.`:'Use “Use Current Location” above to calculate distance and sort nearby demo locations. Demo spots, prices and availability are not live.';
+ list.innerHTML=rows.map(p=>{
+   const directions='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(p.lat!=null&&p.lon!=null?`${p.lat},${p.lon}`:`${p.name}, ${p.area}`);
+   const distance=p._distance===null?'Distance unavailable':`${p._distance.toFixed(1)} km away (approx.)`;
+   return `<article class="parking-card"><div class="parking-card-top"><div class="card-symbol">${p.icon}</div><span class="${statusClass(p.status)}">${escapeHTML(p.status)}</span></div><h3>${escapeHTML(p.name)}</h3><div class="parking-meta">⌖ ${escapeHTML(p.area)}<br>↗ ${distance}<br>▤ ${escapeHTML(p.kind)} · ${escapeHTML(p.price)}<br>◷ ${p.spots>0?'Demo spaces listed':'No demo spaces listed'}</div><div class="parking-card-bottom"><div class="spots"><strong>${String(p.spots).padStart(2,'0')} <small style="font:500 10px 'DM Sans';letter-spacing:0;color:#75817b">spots left*</small></strong><small>${p.total} spaces in this demo zone</small></div><div class="parking-card-actions"><a class="secondary-btn" href="${directions}" target="_blank" rel="noopener">Directions ↗</a><button class="${p.spots?'primary-btn':'secondary-btn'}" data-reserve="${p.id}" ${p.spots===0?'disabled':''}>${p.spots?'Reserve demo spot':'Full'}</button></div></div><div class="sub parking-disclaimer">*Illustrative demo data; not a confirmed real-world vacancy.</div></article>`;
+ }).join('')||'<div class="empty-state">No parking zones match these filters. Try a larger distance or different parking type.</div>';
+ list.querySelectorAll('[data-reserve]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.reserve;const reservations=read(STORE.reservations,{});const activeCount=Object.values(reservations).reduce((sum,n)=>sum+Math.max(0,Number(n)||0),0);if(activeCount>=1){toast('You already have an active demo reservation.');return;}const current=getParking().find(p=>p.id===id);if(!current||current.spots<1){toast('This demo location has no listed spaces left.');return;}reservations[id]=(reservations[id]||0)+1;write(STORE.reservations,reservations);renderParking();updateStats();toast('Demo reservation added. No real parking space was booked.');}));
+}
+function renderCitizenReports(){const list=document.getElementById('citizenReportList');if(!list)return;const reports=read(STORE.reports,[]);const items=reports.slice().reverse().concat([{type:'Road obstruction',location:'Near T. Nagar bus stop',details:'Vehicle partly blocking the pedestrian crossing.',priority:'Urgent',created:'Today, 10:18 AM',id:'sample1',sample:true},{type:'Damaged parking sign',location:'Anna Nagar 2nd Avenue',details:'The street parking restriction sign is difficult to read.',priority:'Normal',created:'Today, 9:35 AM',id:'sample2',sample:true}]);list.innerHTML=items.map(r=>`<div class="report-item"><div class="report-symbol">${r.type.includes('parking')?'🅿️':'📍'}</div><div class="report-item-body"><strong>${escapeHTML(r.type)}</strong><p>${escapeHTML(r.location)}${r.details?' — '+escapeHTML(r.details):''}</p><div class="report-item-meta"><span>${escapeHTML(r.created||'Just now')}</span><span>·</span><span>${escapeHTML(r.priority||'Normal')} priority</span><span class="pill ${r.priority==='Urgent'?'warn':''}" style="margin-left:auto">${r.sample?'Under review':'Submitted'}</span></div></div></div>`).join('')}
+function setupSearch(){const search=document.getElementById('globalSearch');if(search){search.addEventListener('keydown',e=>{if(e.key==='Enter'){const val=search.value.trim();const target=document.body.dataset.page==='parking'?document.getElementById('parkingSearch'):null;if(target){target.value=val;renderParking()}else{location.href='parking.html?q='+encodeURIComponent(val)}}})}}
+function setupShell(){const side=document.getElementById('sidebar');const menuBtn=document.getElementById('menuBtn');const profile=side?.querySelector('#currentProfile');const brand=side?.querySelector('.brand');let profileMarker=null;if(profile&&profile.parentNode){profileMarker=document.createComment('profile original position');profile.parentNode.insertBefore(profileMarker,profile.nextSibling);}const placeProfile=()=>{if(!profile||!profileMarker||!brand)return;if(window.innerWidth<=720){if(profile.parentElement!==side||profile.previousElementSibling!==brand)brand.insertAdjacentElement('afterend',profile);}else if(profileMarker.parentNode&&profile.previousSibling!==profileMarker){profileMarker.parentNode.insertBefore(profile,profileMarker);}};placeProfile();let backdrop=document.getElementById('sidebarBackdrop');if(side&&!backdrop){backdrop=document.createElement('button');backdrop.type='button';backdrop.id='sidebarBackdrop';backdrop.className='sidebar-backdrop';backdrop.setAttribute('aria-label','Close navigation menu');backdrop.hidden=true;document.body.appendChild(backdrop);}const closeMenu=()=>{side?.classList.remove('open');document.body.classList.remove('menu-open');menuBtn?.setAttribute('aria-expanded','false');menuBtn?.setAttribute('aria-label','Open menu');if(backdrop){backdrop.hidden=true;backdrop.classList.remove('visible');}};const openMenu=()=>{if(!side)return;side.classList.add('open');document.body.classList.add('menu-open');menuBtn?.setAttribute('aria-expanded','true');menuBtn?.setAttribute('aria-label','Close menu');if(backdrop){backdrop.hidden=false;requestAnimationFrame(()=>backdrop.classList.add('visible'));}};if(menuBtn){menuBtn.type='button';menuBtn.setAttribute('aria-controls','sidebar');menuBtn.setAttribute('aria-expanded','false');menuBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();if(side?.classList.contains('open'))closeMenu();else openMenu();});}backdrop?.addEventListener('click',closeMenu);document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});side?.querySelectorAll('a').forEach(a=>a.addEventListener('click',closeMenu));window.addEventListener('resize',()=>{placeProfile();if(window.innerWidth>720)closeMenu();});document.getElementById('notificationBtn')?.addEventListener('click',()=>toast(`${getViolations().filter(v=>v.status!=='Resolved').length} active violation alerts are awaiting review.`));document.getElementById('helpBtn')?.addEventListener('click',()=>toast('Parkwise is a demo prototype. Use Citizen Reports to log a street issue.'));document.getElementById('settingsBtn')?.addEventListener('click',()=>location.href='settings.html');document.getElementById('findSpotBtn')?.addEventListener('click',()=>location.href='parking.html');document.getElementById('viewViolationsBtn')?.addEventListener('click',()=>location.href='violations.html');document.getElementById('allParkingBtn')?.addEventListener('click',()=>location.href='parking.html');document.getElementById('newReportBtn')?.addEventListener('click',()=>location.href='reports.html');setupSearch();updateStats()}
+function setupDashboard(){const rows=document.getElementById('dashboardViolations');if(rows){const old=rows.innerHTML;rows.innerHTML='';getViolations().filter(v=>v.status!=='Resolved').slice(0,3).forEach(v=>{rows.insertAdjacentHTML('beforeend',`<tr><td><div class="vehicle"><span class="vehicle-icon">${v.icon}</span><span>${escapeHTML(v.plate)}<small style="display:block;color:#89938c;font-weight:400;margin-top:3px">${escapeHTML(v.location)}</small></span></div></td><td>${escapeHTML(v.issue)}</td><td>${escapeHTML(v.time)}</td><td><span class="${statusClass(v.status)}">${escapeHTML(v.status)}</span></td></tr>`)})}const list=document.getElementById('dashboardParking');if(list){list.innerHTML='';getParking().slice(0,4).forEach(p=>list.insertAdjacentHTML('beforeend',`<div class="parking-row"><div class="parking-icon">${p.icon}</div><div class="parking-info"><strong>${escapeHTML(p.name)}</strong><small>${p.distance} · ${escapeHTML(p.kind)}</small></div><div class="availability"><strong>${String(p.spots).padStart(2,'0')} <span style="font-size:10px;color:#89938c">spots</span></strong><span class="${statusClass(p.status)}">${p.status}</span></div></div>`))}}
+function setupViolationFilters(){document.querySelectorAll('[data-violation-filter]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-violation-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderViolations(b.dataset.violationFilter)}));renderViolations()}
+
+let parkwiseMap=null;
+let googleMapFrame=null;
+let currentMapProvider='osm';
+const demoMapSpots=[
+ {id:'anna',name:'Anna Nagar Tower Park',lat:13.0850,lon:80.2101,spots:42,kind:'Open parking'},
+ {id:'egmore',name:'Egmore Metro Parking',lat:13.0732,lon:80.2609,spots:8,kind:'Covered parking'},
+ {id:'mylapore',name:'Mylapore Tank Road',lat:13.0338,lon:80.2676,spots:31,kind:'Street parking'},
+ {id:'tnagar',name:'T. Nagar · Pondy Bazaar',lat:13.0418,lon:80.2341,spots:4,kind:'Multi-level'},
+ {id:'kilpauk',name:'Kilpauk Garden Parking',lat:13.0836,lon:80.2410,spots:26,kind:'Open parking'},
+ {id:'marina',name:'Marina Beach North Lot',lat:13.0645,lon:80.2830,spots:57,kind:'Open parking'}
+];
+function mapStatus(message,kind='info'){const el=document.getElementById('osmStatus');if(!el)return;el.textContent=message;el.style.background=kind==='error'?'#fff0ed':'';el.style.borderColor=kind==='error'?'#f0c4bc':'';el.style.color=kind==='error'?'#98463d':'';}
+function addDemoParkingMarkers(show){if(!parkwiseMap)return;if(parkwiseMap._demoMarkers){parkwiseMap._demoMarkers.forEach(m=>parkwiseMap.removeLayer(m))}parkwiseMap._demoMarkers=[];if(!show)return;const reservations=read(STORE.reservations,{});demoMapSpots.forEach(p=>{const current=Math.max(0,p.spots-(Number(reservations[p.id])||0));const marker=L.marker([p.lat,p.lon]).addTo(parkwiseMap);marker.bindPopup(`<strong>${escapeHTML(p.name)}</strong><br>${escapeHTML(p.kind)}<br><b>${current}</b> illustrative spots remaining<br><small>Demo location · not a real-time availability feed</small>`);parkwiseMap._demoMarkers.push(marker)});}
+function initParkwiseMap(){const node=document.getElementById('parkwiseMap');if(!node)return;if(!window.L){mapStatus('The map library could not load. Check your internet connection and refresh.','error');return}if(parkwiseMap)return;parkwiseMap=L.map(node,{scrollWheelZoom:false}).setView([13.0827,80.2707],12);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>'}).addTo(parkwiseMap);addDemoParkingMarkers(true);setTimeout(()=>parkwiseMap.invalidateSize(),150);}
+function googleMapUrl(place){return 'https://maps.google.com/maps?q='+encodeURIComponent(place||'Chennai, Tamil Nadu, India')+'&z=13&output=embed';}
+function centerOnCoordinates(lat,lon,label='Your current location'){window._parkwiseOrigin={lat:Number(lat),lon:Number(lon)};renderParking();const input=document.getElementById('osmPlace');if(input)input.value=label; if(currentMapProvider==='google'){if(!googleMapFrame)renderMapProvider('google',`${lat},${lon}`);else googleMapFrame.src=googleMapUrl(`${lat},${lon}`);mapStatus('Google Maps centered on your current location.');return;}if(!parkwiseMap)initParkwiseMap();if(!parkwiseMap)return;parkwiseMap.setView([lat,lon],16,{animate:true});if(window._parkwiseUserMarker)parkwiseMap.removeLayer(window._parkwiseUserMarker);window._parkwiseUserMarker=L.circleMarker([lat,lon],{radius:9,color:'#fff',weight:3,fillColor:'#3478f6',fillOpacity:1}).addTo(parkwiseMap).bindPopup('<strong>Your current location</strong><br><small>Location supplied by your device</small>').openPopup();mapStatus('Map centered on your current location. Blue marker shows your device location; parking availability is not verified.');}
+function useCurrentLocation(){if(!navigator.geolocation){mapStatus('Your browser does not support location access. Try searching for a place instead.','error');return;}mapStatus('Requesting your current location…');navigator.geolocation.getCurrentPosition(pos=>{centerOnCoordinates(pos.coords.latitude,pos.coords.longitude);},err=>{const msg=err.code===1?'Location permission was denied. Allow location access in your browser and try again.':err.code===2?'Your location could not be determined. Check device location services and try again.':'Location request timed out. Try again or search for a place.';mapStatus(msg,'error');},{enableHighAccuracy:true,timeout:15000,maximumAge:60000});}
+function renderMapProvider(provider,place){
+ const host=document.getElementById('mapHost');if(!host)return;
+ currentMapProvider=provider==='google'?'google':'osm';
+ const mapNode=document.getElementById('parkwiseMap');const legend=document.getElementById('mapLegend');const attribution=document.getElementById('mapAttribution');
+ if(currentMapProvider==='google'){
+  if(mapNode)mapNode.style.display='none';
+  if(!googleMapFrame){googleMapFrame=document.createElement('iframe');googleMapFrame.id='googleMapFrame';googleMapFrame.className='parkwise-map google-map-frame';googleMapFrame.title='Google Maps';googleMapFrame.loading='lazy';googleMapFrame.referrerPolicy='no-referrer-when-downgrade';googleMapFrame.allowFullscreen=true;host.appendChild(googleMapFrame)}
+  googleMapFrame.style.display='block';googleMapFrame.src=googleMapUrl(place||document.getElementById('osmPlace')?.value||'Chennai, Tamil Nadu, India');
+  if(legend)legend.style.display='none';if(attribution)attribution.innerHTML='Map provided by <a href="https://maps.google.com/" target="_blank" rel="noopener">Google Maps</a>. Parking availability is not verified by this map.';
+  mapStatus('Google Maps view selected. Search above to move the map. Google Maps is displayed separately from Parkwise demo reservations.');
+ }else{
+  if(googleMapFrame)googleMapFrame.style.display='none';if(mapNode)mapNode.style.display='block';
+  if(legend)legend.style.display='flex';if(attribution)attribution.innerHTML='Map data © OpenStreetMap contributors · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">Attribution and tile usage policy</a>';
+  initParkwiseMap();if(parkwiseMap)setTimeout(()=>parkwiseMap.invalidateSize(),100);
+  mapStatus('OpenStreetMap view selected. Green pins around Chennai are illustrative Parkwise demo locations; counts are not live.');
+  if(place)searchOnlineParking(place);
+ }
+}
+async function searchOnlineParking(place){
+ const input=document.getElementById('osmPlace');if(!input)return;
+ if(currentMapProvider==='google'){
+  if(!googleMapFrame)renderMapProvider('google',place);else googleMapFrame.src=googleMapUrl(place);
+  mapStatus('Google Maps centered on '+place+'. Map results are supplied by Google; live parking availability is not guaranteed.');return;
+ }
+ if(!parkwiseMap)initParkwiseMap();if(!parkwiseMap)return;
+ mapStatus('Finding “'+place+'”…');
+ try{
+  const response=await fetch('/api/geocode?q='+encodeURIComponent(place+', India'),{headers:{'Accept':'application/json'}});
+  if(!response.ok){let msg='Geocoding service returned HTTP '+response.status;try{msg=(await response.json()).error||msg}catch(e){}throw new Error(msg)}
+  const result=await response.json();const lat=Number(result.lat),lon=Number(result.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error('The location service returned invalid coordinates.');
+  parkwiseMap.setView([lat,lon],13,{animate:true});
+  const isChennai=/chennai/i.test(place)||/chennai/i.test(result.display_name||'');
+  addDemoParkingMarkers(isChennai);
+  L.circleMarker([lat,lon],{radius:8,color:'#fff',weight:3,fillColor:'#3478f6',fillOpacity:1}).addTo(parkwiseMap).bindPopup(`<strong>${escapeHTML(result.display_name||place)}</strong><br>Search location`).openPopup();
+  mapStatus('Map centered on '+(result.display_name||place)+'. '+(isChennai?'Green pins show illustrative Parkwise demo parking locations; their counts are not live.':'No demo parking pins are shown for this area. The underlying map is real, but this prototype has no verified local availability feed.'));
+ }catch(e){mapStatus((e&&e.message?e.message:'Could not find this location.')+' The online map remains available; try a simpler place name.','error')}
+}
+function setupOnlineParking(){const form=document.getElementById('osmSearchForm'),input=document.getElementById('osmPlace'),selector=document.getElementById('mapProvider');if(!form||!input||!selector)return;let saved='osm';try{saved=localStorage.getItem('parkwise_map_provider')||'osm'}catch(e){}selector.value=saved;renderMapProvider(saved);form.addEventListener('submit',e=>{e.preventDefault();const place=input.value.trim();if(!place){toast('Enter a city, area or landmark first.');return}searchOnlineParking(place)});document.getElementById('currentLocationBtn')?.addEventListener('click',useCurrentLocation);selector.addEventListener('change',()=>{try{localStorage.setItem('parkwise_map_provider',selector.value)}catch(e){}renderMapProvider(selector.value,input.value.trim());});}
+
+function setupParkingPage(){document.querySelectorAll('[data-park-filter]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-park-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderParking()}));document.getElementById('parkingSearch')?.addEventListener('input',renderParking);['parkingTypeFilter','parkingSort','parkingRadius'].forEach(id=>document.getElementById(id)?.addEventListener('change',renderParking));const params=new URLSearchParams(location.search);const q=params.get('q');if(q&&document.getElementById('parkingSearch'))document.getElementById('parkingSearch').value=q;renderParking()}
+function setupReportForm(){const form=document.getElementById('reportForm');if(!form)return;form.addEventListener('submit',e=>{e.preventDefault();const type=document.getElementById('reportType').value,locationValue=document.getElementById('reportLocation').value.trim();if(!type||!locationValue){toast('Please choose an issue and add a location.');return}const reports=read(STORE.reports,[]);reports.push({id:'r'+Date.now(),type,location:locationValue,vehicle:document.getElementById('reportVehicle').value.trim(),priority:document.getElementById('reportPriority').value,details:document.getElementById('reportDetails').value.trim(),created:'Just now'});write(STORE.reports,reports);form.reset();renderCitizenReports();updateStats();toast('Report added to this demo. Thanks for helping your community!')});renderCitizenReports()}
+function setupSettings(){
+ const form=document.getElementById('settingsForm');
+ if(!form)return;
+ const settings=read(STORE.settings,{notifications:true,compact:false});
+ const choices=Array.from(document.querySelectorAll('[data-accent-choice]'));
+ document.getElementById('settingNotifications').checked=!!settings.notifications;
+ document.getElementById('settingCompact').checked=!!settings.compact;
+ let accent='green';
+ try{accent=localStorage.getItem('parkwise_accent')||'green'}catch(e){}
+ applyAccent(accent);
+ choices.forEach((button,index)=>{
+   button.addEventListener('keydown',event=>{
+     if(!['ArrowRight','ArrowDown','ArrowLeft','ArrowUp'].includes(event.key))return;
+     event.preventDefault();
+     const direction=(event.key==='ArrowRight'||event.key==='ArrowDown')?1:-1;
+     const next=(index+direction+choices.length)%choices.length;
+     choices[next].focus();choices[next].click();
+   });
+ });
+ form.addEventListener('submit',e=>{
+   e.preventDefault();
+   write(STORE.settings,{notifications:document.getElementById('settingNotifications').checked,compact:document.getElementById('settingCompact').checked});
+   applyAccent(document.documentElement.getAttribute('data-accent')||accent);
+   toast('Your preferences have been saved in this browser.');
+ });
+ document.getElementById('clearDemo')?.addEventListener('click',()=>{
+   if(confirm('Clear demo reservations, reports, and resolved alerts from this browser?')){
+     Object.values(STORE).forEach(k=>localStorage.removeItem(k));
+     toast('Demo data cleared. Refreshing this page…');
+     setTimeout(()=>location.reload(),650);
+   }
+ });
+}
+
+const ROLE_STORE='parkwise_demo_profile_v1';
+const ROLE_CONFIG={
+ citizen:{label:'Citizen',name:'Citizen Demo',avatar:'CT',pages:['overview','parking','reports','settings','accounts'],permissions:['Find parking and view demo availability','Create one demo reservation at a time','Submit citizen reports','Manage personal display preferences']},
+ operator:{label:'Parking Operator',name:'Parking Operator Demo',avatar:'PO',pages:['overview','parking','insights','settings','accounts'],permissions:['View parking dashboard and demo occupancy','Review parking zones and demo reservations','View city insight summaries','Manage personal display preferences']},
+ officer:{label:'Traffic Officer',name:'Traffic Officer Demo',avatar:'TO',pages:['overview','violations','reports','insights','settings','accounts'],permissions:['View traffic violation queue','Resolve demo violation alerts','Review citizen reports','View city insight summaries']},
+ admin:{label:'Administrator',name:'Administrator Demo',avatar:'AD',pages:['overview','parking','violations','reports','insights','settings','accounts'],permissions:['Access all prototype pages','Review demo parking and reservation data','Manage demo violation/report statuses','Preview all role configurations']}
+};
+function getDemoProfile(){const saved=read(ROLE_STORE,{role:'citizen',name:'Citizen Demo'});let storedName='';try{storedName=localStorage.getItem('parkwise_display_name')||''}catch(e){}return {role:ROLE_CONFIG[saved.role]?saved.role:'citizen',name:String(storedName||saved.name||'Citizen Demo').slice(0,60)}}
+function setupRoleAccess(){
+ const profile=getDemoProfile(),cfg=ROLE_CONFIG[profile.role],page=document.body.dataset.page||'overview';
+ document.querySelectorAll('.nav a[href]').forEach(a=>{const href=a.getAttribute('href')||'';const key=href.replace('.html','');if(ROLE_CONFIG[profile.role]&&!cfg.pages.includes(key)&&['index','parking','violations','reports','insights','settings','accounts'].includes(key)){a.style.display='none'}});
+ document.querySelectorAll('[data-profile-name]').forEach(el=>el.textContent=profile.name);
+ document.querySelectorAll('[data-profile-role]').forEach(el=>el.textContent=cfg.label);
+ document.querySelectorAll('[data-profile-avatar]').forEach(el=>el.textContent=cfg.avatar);
+ if(!cfg.pages.includes(page)){location.replace(profile.role==='citizen'?'parking.html':profile.role==='operator'?'parking.html':profile.role==='officer'?'violations.html':'index.html');return}
+ if(page==='accounts'){
+  const name=document.getElementById('displayName'),list=document.getElementById('permissionList');
+  let savedName=profile.name;try{savedName=localStorage.getItem('parkwise_display_name')||profile.name}catch(e){}
+  if(name)name.value=savedName;
+  if(list){const c=ROLE_CONFIG[profile.role];list.innerHTML=c.permissions.map(p=>`<div class="permission-item"><span class="permission-check">✓</span><span>${escapeHTML(p)}</span></div>`).join('')}
+  document.getElementById('saveRole')?.addEventListener('click',()=>{
+   const displayName=(name?.value.trim()||profile.name).slice(0,60);
+   try{localStorage.setItem('parkwise_display_name',displayName);write(ROLE_STORE,{role:profile.role,name:displayName})}catch(e){}
+   document.querySelectorAll('[data-profile-name]').forEach(el=>el.textContent=displayName);
+   const status=document.getElementById('roleStatus');if(status)status.textContent='Profile name saved in this browser. Account roles can only be changed by an authorized administrator.';
+   toast('Profile saved.');
+  });
+ }
+}
+
+document.addEventListener('DOMContentLoaded',()=>{setupRoleAccess();setupShell();setupDashboard();if(document.body.dataset.page==='parking'){setupParkingPage();setupOnlineParking();}if(document.body.dataset.page==='violations')setupViolationFilters();if(document.body.dataset.page==='reports')setupReportForm();if(document.body.dataset.page==='settings')setupSettings();});
+
+// Keep the rainbow phase aligned with real time when returning to a background tab.
+document.addEventListener('visibilitychange',()=>{
+  if(document.documentElement.getAttribute('data-accent')==='rgb'&&!document.hidden)syncRgbSpectrum('rgb');
+});
